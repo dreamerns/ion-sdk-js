@@ -95,6 +95,10 @@ export default class WebRTCTransport {
     return this.pc.setRemoteDescription(desc);
   }
 
+  getPeerConnection(): RTCPeerConnection {
+    return this.pc;
+  }
+
   async createOffer(options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit> {
     const offer = await this.pc.createOffer(options);
 
