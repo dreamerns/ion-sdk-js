@@ -122,7 +122,9 @@ export default class Client extends EventEmitter {
         uid: this.uid,
       });
       for (const localStream of this.localStreams) {
-        await localStream.unpublish()
+        if (localStream.mid) {
+          await localStream.unpublish()
+        }
       }
       this.localStreams = []
       Object.values(this.streams).forEach((stream) => stream.unsubscribe());
