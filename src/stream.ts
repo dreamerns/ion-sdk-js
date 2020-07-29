@@ -42,7 +42,8 @@ export class Stream extends MediaStream {
 
   close(): void {
     if (!this.transport) {
-      throw new Error('Stream is not open.');
+      log.warn("Stream transport doesn't exist.")
+      return
     }
     if (this.transport) {
       this.transport.close();
