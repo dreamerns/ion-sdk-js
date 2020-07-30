@@ -67,6 +67,7 @@ export default class WebRTCTransport {
     this.pc.ontrack = null;
     this.pc.onicecandidate = null;
     this.pc.onnegotiationneeded = null;
+    this.pc.oniceconnectionstatechange = null;
     this.pc.getSenders().forEach((sender) => this.pc.removeTrack(sender));
     this.pc.close();
   }
@@ -154,5 +155,9 @@ export default class WebRTCTransport {
 
   set ontrack(cb: (ev: RTCTrackEvent) => any | null) {
     this.pc.ontrack = cb;
+  }
+
+  set oniceconnectionstatechange(cb: (ev: Event) => any | null) {
+    this.pc.oniceconnectionstatechange = cb;
   }
 }

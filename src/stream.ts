@@ -40,6 +40,18 @@ export class Stream extends MediaStream {
 
     return Stream.dispatch;
   }
+
+  close(): void {
+    if (!this.transport) {
+      log.warn("Stream transport doesn't exist.")
+      return
+    }
+    if (this.transport) {
+      this.transport.close();
+      delete this.transport;
+    }
+  }
+
 }
 
 export class LocalStream extends Stream {
@@ -183,6 +195,9 @@ export class LocalStream extends Stream {
     this.transport.onnegotiationneeded = async () => {
       log.info('negotiation needed');
     };
+    this.transport.oniceconnectionstatechange = async () => {
+      log.debug('Ice connection state for sender changed to: '+this.transport?.getPeerConnection().iceConnectionState)
+    }
   }
 
   async unpublish() {
@@ -191,10 +206,7 @@ export class LocalStream extends Stream {
     }
     log.info('unpublish rid => %s, mid => %s', this.rid, this.mid);
 
-    if (this.transport) {
-      this.transport.close();
-      delete this.transport;
-    }
+    this.close();
 
     return await this.dispatch
       .request('unpublish', {
@@ -247,6 +259,9 @@ export class RemoteStream extends Stream {
         await transport.setRemoteDescription(result?.jsep);
       }
     };
+    transport.oniceconnectionstatechange = async () => {
+      log.debug('Ice connection state for receiver changed to: '+ transport?.getPeerConnection().iceConnectionState)
+    };
     const stream: MediaStream = await new Promise(async (resolve, reject) => {
       try {
         transport.ontrack = ({ track, streams }: RTCTrackEvent) => {
@@ -271,16 +286,6 @@ export class RemoteStream extends Stream {
     remote.mid = mid;
     remote.rid = rid;
     return remote;
-  }
-
-  close() {
-    if (!this.transport) {
-      throw new Error('Stream is not open.');
-    }
-    if (this.transport) {
-      this.transport.close();
-      delete this.transport;
-    }
   }
 
   async unsubscribe() {
