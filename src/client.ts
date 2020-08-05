@@ -13,6 +13,7 @@ interface Config {
   options?: ProtooOptions;
   rtc?: RTCConfiguration;
   loglevel?: log.LogLevelDesc;
+  accessToken?: string;
 }
 
 export default class Client extends EventEmitter {
@@ -22,6 +23,7 @@ export default class Client extends EventEmitter {
   localStreams: LocalStream[];
   streams: { [name: string]: RemoteStream };
   knownStreams: Map<string, Map<string, TrackInfo[]>>;
+  roomToken: string | undefined;
 
   constructor(config: Config) {
     super();
@@ -33,6 +35,9 @@ export default class Client extends EventEmitter {
 
     const url = new URL(config.url);
     url.searchParams.append('peer', uid);
+    if (config.accessToken) {
+      url.searchParams.append('access_token', config.accessToken);
+    }
     const transport = new WebSocketTransport(url.toString(), config.options);
     log.setLevel(config.loglevel !== undefined ? config.loglevel : log.levels.WARN);
 
@@ -69,16 +74,21 @@ export default class Client extends EventEmitter {
       rid: this.rid,
       uid: this.uid,
       info,
+      ...(this.roomToken ? {token: this.roomToken} : {}),
     });
   }
 
-  async join(rid: string, info = { name: 'Guest' }) {
+  async join(rid: string, info = { name: 'Guest' }, token?: string) {
     this.rid = rid;
+    if (token) {
+      this.roomToken = token;
+    }
     try {
       const data = await this.dispatch.request('join', {
         rid: this.rid,
         uid: this.uid,
         info,
+        ...(token ? {token} : {}),
       });
       log.info('join success: result => ' + JSON.stringify(data));
     } catch (error) {
@@ -91,7 +101,7 @@ export default class Client extends EventEmitter {
       throw new Error('You must join a room before publishing.');
     }
     this.localStreams?.push(stream);
-    return await stream.publish(this.rid);
+    return await stream.publish(this.rid, this.roomToken);
   }
 
   async unpublish(stream: LocalStream) {
@@ -110,7 +120,7 @@ export default class Client extends EventEmitter {
     if (!tracks) {
       throw new Error('Subscribe mid is not known.');
     }
-    const stream = await RemoteStream.getRemoteMedia(this.rid, mid, tracks);
+    const stream = await RemoteStream.getRemoteMedia(this.rid, mid, tracks, this.roomToken);
     this.streams[mid] = stream;
     return stream;
   }
@@ -120,14 +130,19 @@ export default class Client extends EventEmitter {
       const data = await this.dispatch.request('leave', {
         rid: this.rid,
         uid: this.uid,
+        ...(this.roomToken ? {token: this.roomToken} : {}),
       });
       await Promise.all(this.localStreams.map(async (localStream) => {
         if (localStream.mid) {
-          await localStream.unpublish();
+          await localStream.unpublish(this.roomToken);
         }
       }));
-      this.localStreams = [];
-      Object.values(this.streams).forEach((stream) => stream.unsubscribe());
+      this.localStreams = []
+      await Promise.all(Object.values(this.streams).map(async (stream) => {
+        if (stream.mid) {
+          stream.unsubscribe();
+        }
+      }))
       this.knownStreams.clear();
       log.info('leave success: result => ' + JSON.stringify(data));
     } catch (error) {

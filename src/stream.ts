@@ -161,7 +161,7 @@ export class LocalStream extends Stream {
     }
   }
 
-  async publish(rid: string) {
+  async publish(rid: string, token?: string) {
     const { bandwidth, codec, description } = this.options!;
     let sendOffer = true;
     this.transport = new WebRTCTransport(codec as Codec);
@@ -185,6 +185,7 @@ export class LocalStream extends Stream {
             bandwidth: Number(bandwidth),
             description,
           },
+          ...(token ? {token}: {}),
         });
         this.mid = result.mid;
         log.debug('Got answer => %o', result?.jsep);
@@ -200,7 +201,7 @@ export class LocalStream extends Stream {
     }
   }
 
-  async unpublish() {
+  async unpublish(token?: string) {
     if (!this.rid || !this.mid) {
       throw new Error('Stream is not published.');
     }
@@ -212,6 +213,7 @@ export class LocalStream extends Stream {
       .request('unpublish', {
         rid: this.rid,
         mid: this.mid,
+        ...(token ? {token}: {}),
       })
       .then(() => {
         delete this.rid;
@@ -225,7 +227,7 @@ export class RemoteStream extends Stream {
     super(stream);
     Object.setPrototypeOf(this, RemoteStream.prototype);
   }
-  static async getRemoteMedia(rid: string, mid: string, tracks: Map<string, TrackInfo[]>) {
+  static async getRemoteMedia(rid: string, mid: string, tracks: Map<string, TrackInfo[]>, token?: string) {
     const allTracks = Array.from(tracks.values()).flat();
     const audio = allTracks.map((t) => t.type.toLowerCase() === 'audio').includes(true);
     const video = allTracks.map((t) => t.type.toLowerCase() === 'video').includes(true);
@@ -253,6 +255,7 @@ export class RemoteStream extends Stream {
           rid,
           jsep,
           mid,
+          ...(token ? {token} : {}),
         });
         log.info(`subscribe success => result(mid: ${result!.mid})`);
         log.debug('Got answer => %o', result?.jsep);
