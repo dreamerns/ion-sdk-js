@@ -93,6 +93,7 @@ export default class Client extends EventEmitter {
       log.info('join success: result => ' + JSON.stringify(data));
     } catch (error) {
       log.error('join reject: error =>' + error);
+      throw error  
     }
   }
 
